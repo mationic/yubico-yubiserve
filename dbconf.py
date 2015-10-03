@@ -7,7 +7,7 @@ try:
 except ImportError:
     pass
 try:
-    import sqlite
+    import sqlite3 as sqlite
 except ImportError:
     pass
 
@@ -90,11 +90,13 @@ else:
         if (argv[1][2] == 'd') and (len(argv)>2):
             nickname = re.escape(argv[2])
             cur.execute("SELECT * FROM yubikeys WHERE nickname = '" + nickname + "'")
-            if (cur.rowcount == 0):
+            rowcount = len(cur.fetchall())
+            if (rowcount == 0):
                 print 'Key not found.'
             else:
                 cur.execute("SELECT * FROM yubikeys WHERE nickname = '" + nickname + "' AND active = '1'")
-                if (cur.rowcount == 1):
+                rowcount = len(cur.fetchall())
+                if (rowcount == 1):
                     cur.execute("UPDATE yubikeys SET active = '1' WHERE nickname = '" + nickname + "'")
                     print "Key '" + nickname + "' disabled."
                     con.commit()
@@ -104,11 +106,13 @@ else:
         elif (argv[1][2] == 'e') and (len(argv)>2):
             nickname = re.escape(argv[2])
             cur.execute("SELECT * FROM yubikeys WHERE nickname = '" + nickname + "'")
-            if (cur.rowcount == 0):
+            rowcount = len(cur.fetchall())
+            if (rowcount == 0):
                 print 'Key not found.'
             else:
                 cur.execute("SELECT * FROM yubikeys WHERE nickname = '" + nickname + "' AND active = '1'")
-                if (cur.rowcount == 1):
+                rowcount = len(cur.fetchall())
+                if (rowcount == 1):
                     cur.execute("UPDATE yubikeys SET active = '1' WHERE nickname = '" + nickname + "'")
                     print "Key '" + nickname + "' enabled."
                     con.commit()
@@ -117,7 +121,8 @@ else:
         elif (argv[1][2] == 'k') and (len(argv)>2):
             nickname = re.escape(argv[2])
             cur.execute("SELECT * FROM yubikeys WHERE nickname = '" + nickname + "'")
-            if (cur.rowcount == 0):
+            rowcount = len(cur.fetchall())
+            if (rowcount == 0):
                 print 'Key not found.'
             else:
                 cur.execute("DELETE FROM yubikeys WHERE nickname = '" + nickname + "'")
@@ -127,7 +132,8 @@ else:
             nickname = re.escape(argv[2])
             if ((len(argv[2])<=16) and (len(argv[3]) <= 16) and (len(argv[4]) <= 12) and (len(argv[5])<=32)):
                 cur.execute("SELECT * FROM yubikeys WHERE nickname = '" + argv[2] + "' OR publicname = '" + argv[3] + "'")
-                if (cur.rowcount == 0):
+                rowcount = len(cur.fetchall())
+                if (rowcount == 0):
                     cur.execute("INSERT INTO yubikeys VALUES ('" + argv[2] + "', '" + argv[3] + "', '" + time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) + "', '" + argv[4] + "', '" + argv[5] + "', 1, 1, 1)")
                     con.commit()
                     print "Key '" + argv[2] + "' added to database."
@@ -139,12 +145,14 @@ else:
                 quit()
         elif (argv[1][2] == 'l'):
             cur.execute('SELECT nickname, publicname, active FROM yubikeys')
-            if cur.rowcount != 0:
-                print " " + str(cur.rowcount) + " keys into database:"
+            rows = cur.fetchall()
+            rowcount = len(rows)
+            if rowcount != 0:
+                print " " + str(rowcount) + " keys into database:"
                 print '[Nickname]\t\t>> [PublicID]'
-                for i in range(0, cur.rowcount):
-                    (nickname, publicname, active) = cur.fetchone()
-                    print ' ' + nickname + ' ' * (23-len(nickname)) + ">> " + publicname + ' ' * (21-len(publicname)) + ">> " + active
+                for row in rows:
+                    (nickname, publicname, active) = row
+                    print ' ' + str(nickname) + ' ' * (23-len(nickname)) + ">> " + str(publicname) + ' ' * (21-len(publicname)) + ">> " + str(active)
                 print ''
             else:
                 print 'No keys in database\n'
@@ -154,11 +162,13 @@ else:
         if (argv[1][2] == 'd') and (len(argv)>2):
             nickname = re.escape(argv[2])
             cur.execute("SELECT * FROM oathtokens WHERE nickname = '" + nickname + "'")
-            if (cur.rowcount == 0):
+            rowcount = len(cur.fetchall())
+            if (rowcount == 0):
                 print 'Key not found.'
             else:
                 cur.execute("SELECT * FROM oathtokens WHERE nickname = '" + nickname + "' AND active = '1'")
-                if (cur.rowcount == 1):
+                rowcount = len(cur.fetchall())
+                if (rowcount == 1):
                     cur.execute("UPDATE oathtokens SET active = '1' WHERE nickname = '" + nickname + "'")
                     print "Key '" + nickname + "' disabled."
                     con.commit()
@@ -168,11 +178,13 @@ else:
         elif (argv[1][2] == 'e') and (len(argv)>2):
             nickname = re.escape(argv[2])
             cur.execute("SELECT * FROM oathtokens WHERE nickname = '" + nickname + "'")
-            if (cur.rowcount == 0):
+            rowcount = len(cur.fetchall())
+            if (rowcount == 0):
                 print 'Key not found.'
             else:
                 cur.execute("SELECT * FROM oathtokens WHERE nickname = '" + nickname + "' AND active = '1'")
-                if (cur.rowcount == 1):
+                rowcount = len(cur.fetchall())
+                if (rowcount == 1):
                     cur.execute("UPDATE oathtokens SET active = '1' WHERE nickname = '" + nickname + "'")
                     print "Key '" + nickname + "' enabled."
                     con.commit()
@@ -181,7 +193,8 @@ else:
         elif (argv[1][2] == 'k') and (len(argv)>2):
             nickname = re.escape(argv[2])
             cur.execute("SELECT * FROM oathtokens WHERE nickname = '" + nickname + "'")
-            if (cur.rowcount == 0):
+            rowcount = len(cur.fetchall())
+            if (rowcount == 0):
                 print 'Key not found.'
             else:
                 cur.execute("DELETE FROM oathtokens WHERE nickname = '" + nickname + "'")
@@ -191,7 +204,8 @@ else:
             nickname = re.escape(argv[2])
             if (len(argv[2])<=16) and (len(argv[3]) <= 16) and (len(argv[4]) <= 40):
                 cur.execute("SELECT * FROM oathtokens WHERE nickname = '" + argv[2] + "' OR publicname = '" + argv[3] + "'")
-                if (cur.rowcount == 0):
+                rowcount = len(cur.fetchall())
+                if (rowcount == 0):
                     cur.execute("INSERT INTO oathtokens VALUES ('" + nickname + "', '" + argv[3] + "', '" + time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) + "', '" + argv[4] + "', 1, 1)")
                     con.commit()
                     print "Key '" + argv[2] + "' added to database."
@@ -203,12 +217,14 @@ else:
                 quit()
         elif (argv[1][2] == 'l'):
             cur.execute('SELECT nickname, publicname FROM oathtokens')
-            if cur.rowcount != 0:
-                print " " + str(cur.rowcount) + " keys into database:"
+            rows = cur.fetchall()
+            rowcount = len(rows)
+            if rowcount != 0:
+                print " " + str(rowcount) + " keys into database:"
                 print '[Nickname]\t\t>> [PublicID]'
-                for i in range(0, cur.rowcount):
-                    (nickname, publicname) = cur.fetchone()
-                    print ' ' + nickname + ' ' * (23-len(nickname)) + ">> " + publicname
+                for row in rows:
+                    (nickname, publicname) = row
+                    print ' ' + str(nickname) + ' ' * (23-len(nickname)) + ">> " + str(publicname)
                 print ''
             else:
                 print 'No keys in database\n'
@@ -218,12 +234,14 @@ else:
         if (argv[1][2] == 'a') and (len(argv)>2):
             nickname = re.escape(argv[2])
             cur.execute("SELECT * FROM apikeys WHERE nickname = '" + nickname + "'")
-            if (cur.rowcount != 0):
+            rowcount = len(cur.fetchall())
+            if (rowcount != 0):
                 print 'API Key for this nickname is already present. Remove it or choose another one.\n'
                 quit()
             cur.execute('SELECT id FROM apikeys ORDER BY id DESC LIMIT 1')
-            if (cur.rowcount != 0):
-                id = cur.fetchone()[0] + 1
+            rowcount = len(cur.fetchall())
+            if (rowcount != 0):
+                id = cur.fetchall()[0][0] + 1
             else:
                 id = 1
             api_key = randomChars(20)
@@ -234,7 +252,8 @@ else:
         elif (argv[1][2] == 'k') and (len(argv)>2):
             nickname = re.escape(argv[2])
             cur.execute("SELECT * FROM apikeys WHERE nickname = '" + nickname + "'")
-            if (cur.rowcount == 0):
+            rowcount = len(cur.fetchall())
+            if (rowcount == 0):
                 print "API Key for this nickname Doesn't exists!\n"
                 quit()
             cur.execute("DELETE FROM apikeys WHERE nickname = '" + nickname + "'")
@@ -242,12 +261,13 @@ else:
             print "API Key for '" + nickname + "' has been deleted.\n"
         elif (argv[1][2] == 'l'):
             cur.execute('SELECT nickname FROM apikeys')
-            if cur.rowcount != 0:
-                print ' ' + str(cur.rowcount) + ' keys into database:'
+            rows = cur.fetchall()
+            rowcount = len(rows)
+            if rowcount != 0:
+                print ' ' + str(rowcount) + ' keys into database:'
                 print '[Nickname]'
-                for i in range(0, cur.rowcount):
-                    nickname = cur.fetchone()[0]
-                    print ' ' + nickname
+                for row in rows:
+                    print ' ' + str(row[0])
                 print ''
             else:
                 print 'No keys in database\n'

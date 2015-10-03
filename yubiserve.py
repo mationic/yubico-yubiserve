@@ -23,7 +23,7 @@ try:
 except ImportError:
     pass
 try:
-    import sqlite
+    import sqlite3 as sqlite
 except ImportError:
     pass
 
@@ -126,10 +126,11 @@ class OTPValidation():
                 self.token = self.modhex2hex(match.group(2))
                 cur = self.con.cursor()
                 cur.execute('SELECT aeskey, internalname FROM yubikeys WHERE publicname = "' + self.userid + '" AND active = "1"')
-                if (cur.rowcount != 1):
+                rows = cur.fetchall()
+                if (len(rows) != 1):
                     self.validationResult = self.status['BAD_OTP']
                     return self.validationResult
-                (self.aeskey, self.internalname) = cur.fetchone()
+                (self.aeskey, self.internalname) = rows[0]
                 self.plaintext = self.aes128ecb_decrypt(self.aeskey, self.token)
                 uid = self.plaintext[:12]
                 if (self.internalname != uid):
@@ -141,10 +142,11 @@ class OTPValidation():
                 self.internalcounter = self.hexdec(self.plaintext[14:16] + self.plaintext[12:14] + self.plaintext[22:24])
                 self.timestamp = self.hexdec(self.plaintext[20:22] + self.plaintext[18:20] + self.plaintext[16:18])
                 cur.execute('SELECT counter, time FROM yubikeys WHERE publicname = "' + self.userid + '" AND active = "1"')
-                if (cur.rowcount != 1):
+                rows = cur.fetchall()
+                if (len(rows) != 1):
                     self.validationResult = self.status['BAD_OTP']
                     return self.validationResult
-                (self.counter, self.time) = cur.fetchone()
+                (self.counter, self.time) = rows[0]
                 if (self.counter) >= (self.internalcounter):
                     self.validationResult = self.status['REPLAYED_OTP']
                     return self.validationResult
@@ -168,7 +170,7 @@ class YubiServeHandler (BaseHTTPServer.BaseHTTPRequestHandler):
     global config
     #try:
     if config['yubiDB'] == 'sqlite':
-        con = sqlite.connect(os.path.dirname(os.path.realpath(__file__)) + '/yubikeys.sqlite')
+        con = sqlite.connect(os.path.dirname(os.path.realpath(__file__)) + '/yubikeys.sqlite', check_same_thread=False)
     elif config['yubiDB'] == 'mysql':
         con = MySQLdb.connect(host=config['yubiMySQLHost'], user=config['yubiMySQLUser'], passwd=config['yubiMySQLPass'], db=config['yubiMySQLName'])
     #except:
@@ -217,22 +219,23 @@ class YubiServeHandler (BaseHTTPServer.BaseHTTPRequestHandler):
                     self.end_headers()
                     iso_time = time.strftime("%Y-%m-%dT%H:%M:%S")
                     try:
-                        result = 't=' + iso_time + '\r\notp=' + getData['otp'] + '\r\nnonce=' + getData['nonce'] + '\r\nsl=100\r\nstatus=' + [k for k, v in otpvalidation.status.iteritems() if v == validation][0] + '\r\n'
-                        orderedResult = 'nonce=' + getData['nonce'] + '&otp=' + getData['otp'] + '&sl=100&status=' + [k for k, v in otpvalidation.status.iteritems() if v == validation][0] + '&t=' + iso_time
+                        result = str('t=' + iso_time + '\r\notp=' + getData['otp'] + '\r\nnonce=' + getData['nonce'] + '\r\nsl=100\r\nstatus=' + [k for k, v in otpvalidation.status.iteritems() if v == validation][0] + '\r\n')
+                        orderedResult = str('nonce=' + getData['nonce'] + '&otp=' + getData['otp'] + '&sl=100&status=' + [k for k, v in otpvalidation.status.iteritems() if v == validation][0] + '&t=' + iso_time)
                     except KeyError:
-                        result = 't=' + iso_time + '\r\notp=' + getData['otp'] + '\r\nnonce=\r\nsl=100\r\nstatus=' + [k for k, v in otpvalidation.status.iteritems() if v == validation][0] + '\r\n'
-                        orderedResult = 'nonce=&otp=' + getData['otp'] + 'sl=100&status=' + [k for k, v in otpvalidation.status.iteritems() if v == validation][0] + '&t=' + iso_time
+                        result = str('t=' + iso_time + '\r\notp=' + getData['otp'] + '\r\nnonce=\r\nsl=100\r\nstatus=' + [k for k, v in otpvalidation.status.iteritems() if v == validation][0] + '\r\n')
+                        orderedResult = str('nonce=&otp=' + getData['otp'] + 'sl=100&status=' + [k for k, v in otpvalidation.status.iteritems() if v == validation][0] + '&t=' + iso_time)
                     otp_hmac = ''
                     try:
                         if (getData['id'] != None):
                             apiID = re.escape(getData['id'])
                             cur = self.con.cursor()
                             cur.execute("SELECT secret from apikeys WHERE id = '" + apiID + "'")
-                            if cur.rowcount != 0:
-                                api_key = cur.fetchone()[0]
+                            rows = cur.fetchall()
+                            if len(rows) != 0:
+                                api_key = str(rows[0][0])
                                 otp_hmac = hmac.new(api_key, msg=orderedResult, digestmod=hashlib.sha1).hexdigest().decode('hex').encode('base64').strip()
                             else:
-                                result = 't=' + iso_time + '\r\notp=' + getData['otp'] + '\r\nstatus=NO_CLIENT\r\n'
+                                result = str('t=' + iso_time + '\r\notp=' + getData['otp'] + '\r\nstatus=NO_CLIENT\r\n')
                     except KeyError:
                         pass
                     self.wfile.write('h=' + otp_hmac + '\r\n' + result + '\r\n')
@@ -245,16 +248,17 @@ class YubiServeHandler (BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
             iso_time = time.strftime("%Y-%m-%dT%H:%M:%S")
-            result = 't=' + iso_time + '\r\notp=\r\nnonce=\r\nstatus=MISSING_PARAMETER\r\n'
-            orderedResult = 'nonce=&otp=&status=MISSING_PARAMETER&t=' + iso_time
+            result = str('t=' + iso_time + '\r\notp=\r\nnonce=\r\nstatus=MISSING_PARAMETER\r\n')
+            orderedResult = str('nonce=&otp=&status=MISSING_PARAMETER&t=' + iso_time)
             otp_hmac = ''
             try:
                 if (getData['id'] != None):
                     apiID = re.escape(getData['id'])
                     cur = self.con.cursor()
                     cur.execute("SELECT secret from apikeys WHERE id = '" + apiID + "'")
-                    if cur.rowcount != 0:
-                        api_key = cur.fetchone()[0]
+		    rows = cur.fetchall()
+                    if len(rows) != 0:
+                        api_key = str(rows[0][0])
                         otp_hmac = hmac.new(api_key, msg=orderedResult, digestmod=hashlib.sha1).hexdigest().decode('hex').encode('base64').strip()
             except KeyError:
                 pass
@@ -283,18 +287,19 @@ class YubiServeHandler (BaseHTTPServer.BaseHTTPRequestHandler):
                     self.send_header('Content-type', 'text/plain')
                     self.end_headers()
                     iso_time = time.strftime("%Y-%m-%dT%H:%M:%S")
-                    result = 'otp=' + getData['otp'] + '\r\nstatus=' + validation + '\r\nt=' + iso_time
+                    result = str('otp=' + getData['otp'] + '\r\nstatus=' + validation + '\r\nt=' + iso_time)
                     otp_hmac = ''
                     try:
                         if (getData['id'] != None):
                             apiID = re.escape(getData['id'])
                             cur = self.con.cursor()
                             cur.execute("SELECT secret from apikeys WHERE id = '" + apiID + "'")
-                            if cur.rowcount != 0:
-                                api_key = cur.fetchone()[0]
+                            rows = cur.fetchall()
+                            if len(rows) != 0:
+                                api_key = str(rows[0][0])
                                 otp_hmac = hmac.new(api_key, msg=result, digestmod=hashlib.sha1).hexdigest().decode('hex').encode('base64').strip()
                             else:
-                                result = 'otp=' + getData['otp'] + '\r\nstatus=NO_CLIENT\r\nt=' + iso_time
+                                result = str('otp=' + getData['otp'] + '\r\nstatus=NO_CLIENT\r\nt=' + iso_time)
                     except KeyError:
                         pass
                     self.wfile.write(result + '\r\nh=' + otp_hmac)
@@ -304,15 +309,16 @@ class YubiServeHandler (BaseHTTPServer.BaseHTTPRequestHandler):
                     self.send_header('Content-type', 'text/plain')
                     self.end_headers()
                     iso_time = time.strftime("%Y-%m-%dT%H:%M:%S")
-                    result = 'otp=\r\nstatus=BAD_OTP\r\nt=' + iso_time
+                    result = str('otp=\r\nstatus=BAD_OTP\r\nt=' + iso_time)
                     otp_hmac = ''
                     try:
                         if (getData['id'] != None):
                             apiID = re.escape(getData['id'])
                             cur = self.con.cursor()
                             cur.execute("SELECT secret from apikeys WHERE id = '" + apiID + "'")
-                            if cur.rowcount != 0:
-                                api_key = cur.fetchone()[0]
+                            rows = cur.fetchall()
+                            if len(rows) != 0:
+                                api_key = str(rows[0][0])
                                 otp_hmac = hmac.new(api_key, msg=result, digestmod=hashlib.sha1).hexdigest().decode('hex').encode('base64').strip()
                     except KeyError:
                         pass
@@ -324,15 +330,16 @@ class YubiServeHandler (BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
             iso_time = time.strftime("%Y-%m-%dT%H:%M:%S")
-            result = 'otp=\r\nstatus=MISSING_PARAMETER\r\nt=' + iso_time
+            result = str('otp=\r\nstatus=MISSING_PARAMETER\r\nt=' + iso_time)
             otp_hmac = ''
             try:
                 if (getData['id'] != None):
                     apiID = re.escape(getData['id'])
                     cur = self.con.cursor()
                     cur.execute("SELECT secret from apikeys WHERE id = '" + apiID + "'")
-                    if cur.rowcount != 0:
-                        api_key = cur.fetchone()[0]
+                    rows = cur.fetchall()
+                    if len(rows) != 0:
+                        api_key = str(rows[0][0])
                         otp_hmac = hmac.new(api_key, msg=result, digestmod=hashlib.sha1).hexdigest().decode('hex').encode('base64').strip()
             except KeyError:
                 pass
@@ -350,8 +357,10 @@ class SecureHTTPServer(BaseHTTPServer.HTTPServer):
         BaseHTTPServer.HTTPServer.__init__(self, server_address, HandlerClass)
         ctx = SSL.Context(SSL.SSLv23_METHOD)
         fpem = os.path.dirname(os.path.realpath(__file__)) + '/yubiserve.pem'
+        capem = os.path.dirname(os.path.realpath(__file__)) + '/ca-bundle.pem'
         ctx.use_privatekey_file (fpem)
         ctx.use_certificate_file(fpem)
+        ctx.load_verify_locations(capem)
         self.socket = SSL.Connection(ctx, socket.socket(self.address_family, self.socket_type))
         self.server_bind()
         self.server_activate()
