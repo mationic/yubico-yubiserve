@@ -181,7 +181,7 @@ class YubiServeHandler (BaseHTTPServer.BaseHTTPRequestHandler):
         dict = {}
         for singleValue in qs.split('&'):
             keyVal = singleValue.split('=')
-            dict[urllib.unquote_plus(keyVal[0])] = urllib.unquote_plus(keyVal[1])
+            dict[urllib.unquote_plus(keyVal[0])] = urllib.unquote_plus(keyVal[1] if len(keyVal) > 1 else "")
         return dict
 
     def setup(self):
@@ -226,7 +226,7 @@ class YubiServeHandler (BaseHTTPServer.BaseHTTPRequestHandler):
                         orderedResult = str('nonce=&otp=' + getData['otp'] + 'sl=100&status=' + [k for k, v in otpvalidation.status.iteritems() if v == validation][0] + '&t=' + iso_time)
                     otp_hmac = ''
                     try:
-                        if (getData['id'] != None):
+                        if (getData and getData['id'] != None):
                             apiID = re.escape(getData['id'])
                             cur = self.con.cursor()
                             cur.execute("SELECT secret from apikeys WHERE id = '" + apiID + "'")
@@ -354,11 +354,14 @@ class YubiServeHandler (BaseHTTPServer.BaseHTTPRequestHandler):
 
 class SecureHTTPServer(BaseHTTPServer.HTTPServer):
     def __init__(self, server_address, HandlerClass):
-        BaseHTTPServer.HTTPServer.__init__(self, server_address, HandlerClass)
-        ctx = SSL.Context(SSL.SSLv23_METHOD)
         fpem = os.path.dirname(os.path.realpath(__file__)) + '/yubiserve.pem'
         capem = os.path.dirname(os.path.realpath(__file__)) + '/ca-bundle.pem'
-        ctx.use_privatekey_file (fpem)
+
+        BaseHTTPServer.HTTPServer.__init__(self, server_address, HandlerClass)
+        ctx = SSL.Context(SSL.SSLv23_METHOD)
+        ctx.set_options(SSL.OP_NO_SSLv2|SSL.OP_NO_SSLv3)
+        ctx.set_cipher_list('HIGH !aNULL !eNULL !EXPORT !LOW !MEDIUM !DES !3DES !RC4 !SEED !CAMELLIA !MD5 !PSK !DSS')
+        ctx.use_privatekey_file(fpem)
         ctx.use_certificate_file(fpem)
         ctx.load_verify_locations(capem)
         self.socket = SSL.Connection(ctx, socket.socket(self.address_family, self.socket_type))
