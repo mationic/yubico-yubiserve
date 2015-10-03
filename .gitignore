@@ -1,2 +1,4 @@
 *.pyc
-.*.swp
+*.pem
+.*
+yubikeys.sqlite
